@@ -38,12 +38,11 @@ preferences {
 		input "messageText", "text", title: "Message Text", required: false
 	}
 	section("Via a push notification and/or an SMS message"){
-		input("recipients", "contact", title: "Send notifications to") {
+			input"recipients", "contact", title: "Send notifications to",required 
 			input "phone", "phone", title: "Enter a phone number to get SMS", required: false
 			paragraph "If outside the US please make sure to enter the proper country code"
 			input "pushAndPhone", "enum", title: "Notify me via Push Notification", required: false, options: ["Yes", "No"]
 		}
-	}
 	section("Minimum time between messages (optional, defaults to every message)") {
 		input "frequency", "decimal", title: "Minutes", required: false
 	}
@@ -65,10 +64,10 @@ def initialize() {
 	// TODO: subscribe to attributes, devices, locations, etc.
     log.debug "initializing"
     subscribe(button, "button.pushed", eventHandler)
-	subscribe(contact, "contact.open", eventHandler)
-    subscribe(contact, "contact.close", eventHandler)
-	subscribe(mySwitch, "switch.on", eventHandler)
-	subscribe(mySwitch, "switch.off", eventHandler)
+	//subscribe(contact, "contact.open", eventHandler)
+    //subscribe(contact, "contact.closed", eventHandler)
+	//subscribe(mySwitch, "switch.on", eventHandler)
+	//subscribe(mySwitch, "switch.off", eventHandler)
 }
 
 def subscribeToEvents(){
@@ -76,16 +75,42 @@ def subscribeToEvents(){
 }
 
 def eventHandler(evt) {
+//evt.device.currentState("battery").stringValue
+	def garage = mySwitch.currentState("switch").stringValue
+    log.debug "garage state ${garage}"
 	log.debug "Notify got evt ${evt}"
-			if (mySwitch.switch=="off") {
-            log.debug "contact open"
-				mySwitch.off()
-                return;
-			} else {
-            log.debug "contact closed"
+    log.debug "lastTime ${frequency}"
+    	if (frequency) {
+		def lastTime = state[evt.deviceId]
+		if (lastTime == null || now() - lastTime >= frequency * 60000) {
+        log.debug "inside if statement"
+			sendMessage(evt)
+            	if (garage=="off") {
+            log.debug "opening garage door"
 				mySwitch.on()
+                return;
 			}
-
+            if	(garage=="on"){
+            log.debug "closing garage door"
+            	mySwitch.off()
+            }    
+		}
+	} else {
+    	log.debug "inside if else statment"
+        log.debug "garage state in else statment is ${garage}"
+                        if	(garage){
+            sendMessage("Closing Garage Door")
+            log.debug "closing garage door"
+            mySwitch.off()
+            } 
+            	if (garage=="off" || !garage) {
+            sendMessage("Opening Garage Door")
+            log.debug "opening garage door"
+				mySwitch.on()
+                return;
+			}
+ 
+    }
 }
 
 
@@ -111,7 +136,8 @@ private sendMessage(evt) {
 				log.debug 'Sending SMS'
 				options.method = 'phone'
 			}
-		} else if (pushAndPhone != 'No') {
+		} else if (pushAndPhone == 'Yes') {
+        	log.debug "pushAndPhoneState ${pushAndPhone}"
 			log.debug 'Sending push'
 			options.method = 'push'
 		} else {
