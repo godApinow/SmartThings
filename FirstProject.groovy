@@ -38,7 +38,7 @@ preferences {
 		input "messageText", "text", title: "Message Text", required: false
 	}
 	section("Via a push notification and/or an SMS message"){
-			input"recipients", "contact", title: "Send notifications to",required 
+			//input"recipients", "contact", title: "Send notifications to",required: false
 			input "phone", "phone", title: "Enter a phone number to get SMS", required: false
 			paragraph "If outside the US please make sure to enter the proper country code"
 			input "pushAndPhone", "enum", title: "Notify me via Push Notification", required: false, options: ["Yes", "No"]
@@ -68,6 +68,22 @@ def initialize() {
     //subscribe(contact, "contact.closed", eventHandler)
 	//subscribe(mySwitch, "switch.on", eventHandler)
 	//subscribe(mySwitch, "switch.off", eventHandler)
+    
+    def myButtonCaps = button.capabilities
+
+// log each capability supported by the "mySwitch" device, along
+// with all its supported commands
+	myButtonCaps.each {cap ->
+    log.debug "Capability name: ${cap.name}"
+    cap.commands.each {comm ->
+        log.debug "-- Command name: ${comm.name}"
+    }
+    cap.attributes.each {attr ->
+        log.debug "-- Attribute name; ${attr.name}"
+    }
+}
+	def batteryAttr = button.currentState("battery").stringValue
+    log.debug "battery ${batteryAttr}"
 }
 
 def subscribeToEvents(){
@@ -76,56 +92,78 @@ def subscribeToEvents(){
 
 def eventHandler(evt) {
 //evt.device.currentState("battery").stringValue
+
 	def garage = mySwitch.currentState("switch").stringValue
     log.debug "garage state ${garage}"
-	log.debug "Notify got evt ${evt}"
-    log.debug "lastTime ${frequency}"
+         def stingOn = "on"
+   		 def stringOff = "off"
     	if (frequency) {
 		def lastTime = state[evt.deviceId]
 		if (lastTime == null || now() - lastTime >= frequency * 60000) {
         log.debug "inside if statement"
-			sendMessage(evt)
-            	if (garage=="off") {
-            log.debug "opening garage door"
+     	 if(stringOff.equalsIgnoreCase(garage)) { 
+   				 log.debug "same" 
+         def messageString = "Opening Garage Door Battery %${batteryAttr}"
+         messageString = messageString.replace("[", "")
+         messageString = messageString.replace("]", "");
+                 sendMessage(messageString.toString())
+            	log.debug "opening garage door"
 				mySwitch.on()
                 return;
-			}
-            if	(garage=="on"){
-            log.debug "closing garage door"
-            	mySwitch.off()
-            }    
+  			}else{ 
+    			log.debug "not same" 
+                log.debug "inside myswitch current Value"
+                     def messageString = "Closing Garage Door Battery %${batteryAttr}"
+         messageString = messageString.replace("[", "")
+         messageString = messageString.replace("]", "");
+                 sendMessage(messageString.toString())
+            	 log.debug "closing garage door"
+            	 mySwitch.off()
+            	 return;
+  				}    
 		}
 	} else {
+    		def batteryAttr = button.currentState("battery").stringValue
+    	log.debug "battery ${batteryAttr}"
     	log.debug "inside if else statment"
         log.debug "garage state in else statment is ${garage}"
-                        if	(garage){
-            sendMessage("Closing Garage Door")
-            log.debug "closing garage door"
-            mySwitch.off()
-            } 
-            	if (garage=="off" || !garage) {
-            sendMessage("Opening Garage Door")
-            log.debug "opening garage door"
+     	 if(stringOff.equalsIgnoreCase(garage)) { 
+   				 log.debug "same" 
+                      def messageString = "Opening Garage Door Battery %${batteryAttr}"
+         messageString = messageString.replace("[", "")
+         messageString = messageString.replace("]", "");
+                 sendMessage(messageString.toString())
+            	log.debug "opening garage door"
 				mySwitch.on()
                 return;
-			}
- 
+  			}else{ 
+    			log.debug "not same" 
+                log.debug "inside myswitch current Value"
+                     def messageString = "Closing Garage Door Battery %${batteryAttr}"
+         messageString = messageString.replace("[", "")
+         messageString = messageString.replace("]", "");
+           		 sendMessage(messageString.toString())
+            	 log.debug "closing garage door"
+            	 mySwitch.off()
+            	 return;
+  				} 
     }
 }
 
 
 private sendMessage(evt) {
-	String msg = messageText
+	log.debug "sendMessage ${evt}"
+	String msg = evt
 	Map options = [:]
 
 	if (!messageText) {
-		msg = defaultText(evt)
+		//msg = defaultText(evt)
 		options = [translatable: true, triggerEvent: evt]
 	}
-	log.debug "$evt.name:$evt.value, pushAndPhone:$pushAndPhone, '$msg'"
+	//log.debug "$evt.name:$evt.value, pushAndPhone:$pushAndPhone, '$msg'"
 
 	if (location.contactBookEnabled) {
-		sendNotificationToContacts(msg, recipients, options)
+		//sendNotificationToContacts(msg, recipients, options)
 	} else {
 		if (phone) {
 			options.phone = phone
@@ -152,7 +190,8 @@ private sendMessage(evt) {
 }
 
 private defaultText(evt) {
-	if (evt.name == 'presence') {
+//if (evt.name == 'presence') {
+	if (evt == 'presence') {
 		if (evt.value == 'present') {
 			if (includeArticle) {
 				'{{ triggerEvent.linkText }} has arrived at the {{ location.name }}'
@@ -169,7 +208,7 @@ private defaultText(evt) {
 			}
 		}
 	} else {
-		'{{ triggerEvent.descriptionText }}'
+		'${evt}'
 	}
 }
 
